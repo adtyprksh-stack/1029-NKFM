@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Coal transit delay dashboard</title>
+<style>
+:root{--bg:#070b14;--cd:#111a2e;--ln:#26324f;--tx:#eaf0ff;--mu:#c3d0ee;--ac:#5ee1c4;--bad:#ff7a7a;--ok:#7be0a0;--wn:#ffc857}
+*{box-sizing:border-box;margin:0}body{background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,sans-serif;padding:12px;max-width:1100px;margin:auto}
+h1{font:700 19px Georgia,serif}.sub{color:var(--mu);font-size:13px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin:10px 0}
+button,select,input{background:var(--cd);color:var(--tx);border:1px solid var(--ln);border-radius:6px;padding:7px 9px;font:inherit}
+button{cursor:pointer}button.p{background:var(--ac);color:#04251d;border:0;font-weight:700}
+label{display:flex;flex-direction:column;font-size:12px;color:var(--mu);gap:3px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.t,.c{background:var(--cd);border:1px solid var(--ln);border-radius:8px;padding:10px}
+.t b{display:block;font-size:28px;margin-top:2px}.t small{color:var(--mu);font-size:12px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px;margin-top:10px}
+.c h2{font-size:14px;margin-bottom:2px}.c p{font-size:13px;color:var(--mu);margin-bottom:6px}
+canvas{display:block}.c{overflow-x:auto}th{color:#e6eeff}td{font-variant-numeric:tabular-nums}input[type=date]{min-width:150px}.sc{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:8px 10px;border-bottom:1px solid var(--ln);text-align:left;white-space:nowrap}
+td.h{text-align:center;cursor:pointer}.up{color:var(--bad)}.dn{color:var(--ok)}
+details{margin-top:10px}summary{cursor:pointer;color:var(--ac)}#st{color:var(--mu);font-size:12px}
+[hidden]{display:none!important}</style></head><body>
+<h1>Coal dashboard</h1>
+<div class="sub" id="st">Add a Coal Trip Report (.xlsx) to begin.</div>
+<pre id="mg" class="sub" style="white-space:pre-wrap"></pre>
+<div class="row">
+<button class="p" onclick="fd()">Fetch from Drive</button><button onclick="fx.click()">Add Excel reports</button><button onclick="ex()">Export history</button><button onclick="fj.click()">Import history</button><button onclick="clr()">Clear data</button>
+<input id="fx" type="file" accept=".xlsx" multiple hidden><input id="fj" type="file" accept=".json" hidden></div>
+<div class="row"><button class="p" id="b1" onclick="tab(1)">Stock &amp; receipts</button><button id="b2" onclick="tab(2)">Transit delay</button></div>
+<div id="v1"><div class="row"><label>Day (by plant entry)<input type="date" id="rd"></label></div>
+<div class="tiles" id="s1"></div>
+<div class="c" style="margin-top:10px"><h2>Daily entries (typed in)</h2><p>Saved per day with your history and included in Export. Excel-calculated values stay beside the reported ones.</p><div class="row" id="mf"></div></div>
+<div class="g"><div class="c"><h2>Receipt by source mine (MT)</h2><canvas id="k1"></canvas></div><div class="c"><h2>Receipt by transporter (MT)</h2><canvas id="k2"></canvas></div>
+<div class="c"><h2>Average plant TAT by plant-entry hour (min)</h2><canvas id="k3" data-mw="640"></canvas></div><div class="c" style="grid-column:1/-1"><h2>Unique vehicles by mine and transporter</h2><div class="sc" id="k4"></div></div>
+<div class="c" style="grid-column:1/-1"><h2>Trend</h2><p>Tap any tile above to jump here, or choose: <select id="km"><option value="receipt">Receipt (MT)</option><option value="trips">Trips</option><option value="ccl">CCL (MT)</option><option value="nml">NML (MT)</option><option value="cons">Consumption (MT)</option><option value="stock">Closing stock (MT)</option><option value="days">Stock days</option><option value="tat">Average plant TAT (min)</option></select> <select id="kr"><option value="7">last 7 days</option><option value="14">last 14 days</option><option value="30">last 30 days</option></select> ending on the selected day. Reported values appear only for days you typed them in.</p><canvas id="k5"></canvas></div></div></div>
+<div id="v2" hidden>
+<div class="row">
+<label>Compare<select id="pl"><option value="7">Last 7 days vs previous 7</option><option value="14">Last 14 days vs previous 14</option><option value="30">Last 30 days vs previous 30</option><option value="c">Custom dates</option></select></label>
+<label>Period ends<input type="date" id="to"></label><label>From (custom only)<input type="date" id="fr"></label>
+<label>Mine<select id="mi"></select></label><label>Transporter<select id="tp"></select></label><label>Vehicle<input id="ve" size="10" placeholder="search"></label></div>
+<div class="sub" id="pd"></div><div id="ins" style="margin:6px 0;font-size:15px"></div>
+<div class="tiles" id="tl"></div>
+<div class="g">
+<div class="c" style="grid-column:1/-1"><h2>Transit by mine (mine exit to plant entry)</h2><p>Tap a mine to see its transporters below. * = fewer than 10 trips. Change = this period minus previous period.</p><div class="sc" id="t1"></div></div>
+<div class="c" style="grid-column:1/-1"><h2 id="h2">Transit by transporter</h2><p>Tap a transporter to apply it to the time-of-day table.</p><div class="sc" id="t2"></div></div>
+<div class="c" style="grid-column:1/-1"><h2 id="h3">Time of day</h2><p>Group trips by <select id="hs"><option value="a">mine exit time</option><option value="b">plant entry time</option></select> in 3-hour blocks, for the mine and transporter chosen above.</p><div class="sc" id="t3"></div></div>
+<div class="c" style="grid-column:1/-1"><h2>Transit by hour of day, no-entry hours shaded</h2><p>Bars = median transit (h) by <span id="hl">mine exit</span> hour (follows the switch above); yellow line = trips (right scale). Red bands = no entry on route, 07:00 to 10:00 and 14:00 to 16:00.</p><canvas id="c4" data-mw="720"></canvas></div>
+<div class="c" style="grid-column:1/-1"><h2>Trend</h2><p><select id="ts"><option value="t">Transit: average and median (h)</option><option value="p">Average plant TAT (min)</option></select> by day, last 30 days up to the period end</p><canvas id="c3"></canvas></div></div>
+</div>
+<details><summary>Settings</summary><div class="c" style="margin-top:6px"><div class="row">
+<label>Transporter source field<select id="trk"><option value="c">Challan created by (default source)</option><option value="t">Transporter column</option></select></label>
+<label>Drive script link<input id="du" size="28" placeholder="https://script.google.com/.../exec"></label><label>Drive password<input id="dk" type="password"></label></div>
+</div></details>
+<script>
+const LS=(()=>{try{localStorage.setItem('x','1');return localStorage}catch(e){return{}}})(),G=()=>window.google&&google.script&&google.script.run,say=s=>{mg.textContent=s;try{alert(s)}catch(e){}};
+const $=s=>document.querySelector(s),D=864e5/6e4;let T=[],S={bm:{},tol:30,trk:'c'},F={};
+const COL=['#5ee1c4','#ffc857','#6ea8ff','#ff8fab','#c3a1ff','#9be564'];
+const dbp=new Promise(r=>{try{const q=indexedDB.open('coalx',1);q.onupgradeneeded=()=>q.result.createObjectStore('k');q.onsuccess=()=>r(q.result);q.onerror=()=>r(null)}catch(e){r(null)}});
+const kv=async(m,k,v)=>{const d=await dbp;if(!d)return;return new Promise(r=>{const o=d.transaction('k','readwrite').objectStore('k'),q=m=='get'?o.get(k):o.put(v,k);q.onsuccess=()=>r(q.result);q.onerror=()=>r()})};
+const save=()=>{kv('put','trips',T);kv('put','set',S)};
+const pm=s=>{if(typeof s=='number')return Math.round((s-25569)*1440);const m=/(\d+)-(\d+)-(\d{4})[ T](\d+):(\d+)(?::(\d+))?/.exec(s||'');return m?Date.UTC(+m[3],m[2]-1,+m[1],+m[4],+m[5])/6e4+(m[6]?+m[6]/60:0):null};
+const iso=m=>new Date(m*6e4).toISOString().slice(0,10),dmy=i=>i.split('-').reverse().join('-');
+const un=s=>s.replace(/&(#x?\w+|\w+);/g,(a,b)=>b[0]=='#'?String.fromCodePoint(b[1]=='x'?parseInt(b.slice(2),16):+b.slice(1)):({amp:'&',lt:'<',gt:'>',quot:'"',apos:"'"}[b]||a));
+async function zread(buf){const dv=new DataView(buf),u=new Uint8Array(buf),td=new TextDecoder(),f={};let e=u.length-22;while(e>=0&&dv.getUint32(e,true)!=0x06054b50)e--;if(e<0)throw Error('Not an .xlsx file');let n=dv.getUint16(e+10,true),p=dv.getUint32(e+16,true);
+for(;n--;){const nl=dv.getUint16(p+28,true);f[td.decode(u.subarray(p+46,p+46+nl))]={m:dv.getUint16(p+10,true),cs:dv.getUint32(p+20,true),lo:dv.getUint32(p+42,true)};p+=46+nl+dv.getUint16(p+30,true)+dv.getUint16(p+32,true)}
+return async k=>{const z=f[k];if(!z)return null;const s=z.lo+30+dv.getUint16(z.lo+26,true)+dv.getUint16(z.lo+28,true),d=u.subarray(s,s+z.cs);if(!z.m)return td.decode(d);return td.decode(await new Response(new Blob([d]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer())}}
+async function xrows(buf){const g=await zread(buf);let ss=[];const sx=await g('xl/sharedStrings.xml');
+if(sx)ss=[...sx.matchAll(/<si>([\s\S]*?)<\/si>/g)].map(m=>un([...m[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(x=>x[1]).join('')));
+const x=await g('xl/worksheets/sheet1.xml');if(!x)throw Error('Sheet not found');const rows=[];
+for(const rm of x.matchAll(/<row [^>]*?r="(\d+)"[^>]*>([\s\S]*?)<\/row>/g)){const r=[];
+for(const c of rm[2].matchAll(/<c ([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)){const a=c[1],ref=/r="([A-Z]+)/.exec(a)[1],t=(/t="(\w+)"/.exec(a)||[])[1],b=c[2]||'';let v;
+if(t=='inlineStr')v=un([...b.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map(m=>m[1]).join(''));
+else{const m=/<v>([\s\S]*?)<\/v>/.exec(b);if(m){v=un(m[1]);if(t=='s')v=ss[+v];else if(t!='str'&&t!='e'&&v!==''&&!isNaN(v))v=+v}}
+let ci=0;for(const ch of ref)ci=ci*26+ch.charCodeAt(0)-64;r[ci-1]=v}rows[+rm[1]-1]=r}return rows}
+function toTrips(rows){const hi=rows.findIndex(r=>r&&r.some(c=>String(c).trim().toUpperCase()=='TRIP ID'));if(hi<0)throw Error('TRIP ID header not found');
+const h={};rows[hi].forEach((c,i)=>h[String(c).trim().toUpperCase()]=i);const o=[];
+for(const r of rows.slice(hi+1)){if(!r)continue;const g=k=>r[h[k]],id=g('TRIP ID');if(!id)continue;
+o.push({i:String(id),v:g('VEHICLE NO')||'',m:g('MINES')||'?',c:g('CHALLAN CREATED BY')||g('TRANSPORTER')||'?',t:g('TRANSPORTER')||g('CHALLAN CREATED BY')||'?',a:pm(g('MET')),b:pm(g('PLANT ENTRY TIME')),g:pm(g('GROSS WEIGHT TIME')),u:pm(g('UNLOADING TIME')),o:pm(g('PLANT OUT TIME')),n:+g('NET WEIGHT')||0})}return o}
+function merge(n){const m=new Map(T.map(x=>[x.i,x]));n.forEach(x=>m.set(x.i,x));T=[...m.values()].filter(x=>x.b!=null);
+T.forEach(x=>{x.tr=x.a!=null&&x.b>=x.a?x.b-x.a:null;x.pt=x.o!=null&&x.o>=x.b?x.o-x.b:null;x.d=iso(x.b)});AC={};save()}
+fx.onchange=async e=>{let ok=0,bad=[];for(const f of e.target.files){try{merge(toTrips(await xrows(await f.arrayBuffer())));ok++}catch(x){bad.push(f.name+': '+x.message)}}
+e.target.value='';if(bad.length)say('Could not read:\n'+bad.join('\n'));init(true)};
+fj.onchange=async e=>{try{const j=JSON.parse(await e.target.files[0].text());merge(j.trips||[]);Object.assign(S,j.settings||{});save();init(true)}catch(x){say('Not a valid history file')}e.target.value=''};
+function ex(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({v:1,trips:T.map(({tr,pt,d,...r})=>r),settings:S})],{type:'application/json'}));a.download='coal_history.json';a.click()}
+function clr(){if(confirm('Delete all saved trips on this device? Export first if you need a backup.')){T=[];AC={};save();init(true)}}
+const q=(a,p)=>{if(!a.length)return null;a=[...a].sort((x,y)=>x-y);const i=(a.length-1)*p,l=Math.floor(i);return a[l]+(a[Math.min(l+1,a.length-1)]-a[l])*(i-l)};
+const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null,tk=x=>S.trk=='t'?x.t:x.c,hr=m=>Math.floor((m%1440)/60);
+let AC={};const auto=m=>AC[m]??=(()=>{const v=T.filter(x=>x.m==m&&x.tr!=null).map(x=>x.tr),p=q(v,.25);return p==null?0:Math.round(p/5)*5})();
+const bm=m=>S.bm[m]!=null&&S.bm[m]!==''?+S.bm[m]:auto(m);
+const late=x=>x.tr!=null&&x.tr>bm(x.m)+S.tol,over=x=>x.tr==null?0:Math.max(0,x.tr-bm(x.m));
+const base=()=>T.filter(x=>(!F.mi||x.m==F.mi)&&(!F.tp||tk(x)==F.tp)&&(!F.ve||x.v.toUpperCase().includes(F.ve.toUpperCase())));
+const inr=(x,a,b)=>x.d>=a&&x.d<=b;
+function fill(id,l,first,cur){const e=$(id);e.innerHTML=`<option value="">${first}</option>`+l.map(v=>`<option>${v}</option>`).join('');e.value=cur&&l.includes(cur)?cur:''}
+function init(reset){const ds=[...new Set(T.map(x=>x.d))].sort();
+if(reset||!F.fr){F.fr=F.to=ds[ds.length-1]||''}
+fill('#mi',[...new Set(T.map(x=>x.m))].sort(),'All mines',F.mi);fill('#tp',[...new Set(T.map(tk))].sort(),'All transporters',F.tp);
+fr.value=F.fr;to.value=F.to;if(reset||!rd.value)rd.value=F.to;$('#trk').value=S.trk;du.value=LS.cx_url||'';dk.value=LS.cx_key||'';
+
+$('#st').textContent=T.length?`${T.length} trips saved on this device, ${dmy(ds[0])} to ${dmy(ds[ds.length-1])}. Dates use plant entry day.`:'Add a Coal Trip Report (.xlsx) to begin.';draw()}
+function rng(n){const ds=[...new Set(T.map(x=>x.d))].sort();if(!ds.length)return;F.to=ds[ds.length-1];F.fr=n<0?ds[0]:n==0?F.to:iso(Date.parse(F.to)/6e4-(n-1)*D);fr.value=F.fr;to.value=F.to;draw()}
+fr.onchange=to.onchange=()=>{F.fr=fr.value;F.to=to.value;draw()};
+mi.onchange=()=>{F.mi=mi.value;draw()};tp.onchange=()=>{F.tp=tp.value;draw()};ve.oninput=()=>{F.ve=ve.value;draw()};hs.onchange=ts.onchange=draw;
+$('#trk').onchange=e=>{S.trk=e.target.value;F.tp='';save();init()};
+
+function cv(id,h){const c=$('#'+id),w=Math.max(c.parentNode.clientWidth-20,+c.dataset.mw||0),d=devicePixelRatio||1;c.width=w*d;c.height=h*d;c.style.height=h+'px';c.style.width=w+'px';const x=c.getContext('2d');x.scale(d,d);x.font='600 13px system-ui';c.hits=[];
+c.onclick=e=>{const r=c.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,k=c.hits.find(k=>px>=k[0]&&px<=k[1]&&py>=k[2]&&py<=k[3]);k&&k[4]()};return[x,w,h,c]}
+const empty=(x,w,h)=>{x.fillStyle='#c3d0ee';x.textAlign='center';x.fillText('No data for these filters',w/2,h/2)};
+const dl=(a,b,u,inv)=>{if(a==null||b==null)return'';const d=a-b;return`<small class="${d>0==!inv?'up':'dn'}">${d>0?'+':''}${d.toFixed(1)}${u} vs previous</small>`};
+const E=s=>String(s).replace(/"/g,'&quot;'),pad=n=>String(n).padStart(2,'0');
+function win(){const to0=F.to||iso(Date.now()/6e4),c=pl.value=='c',N=c?Math.max(1,Math.round((Date.parse(to0)-Date.parse(F.fr||to0))/864e5)+1):+pl.value,fr0=c?(F.fr||to0):iso(Date.parse(to0)/6e4-(N-1)*D);return[fr0,to0,iso(Date.parse(fr0)/6e4-N*D),iso(Date.parse(fr0)/6e4-D)]}
+const sm=a=>{const t=a.filter(x=>x.tr!=null).map(x=>x.tr);return{n:a.length,av:avg(t),md:q(t,.5),pt:avg(a.filter(x=>x.pt!=null).map(x=>x.pt))}};
+const f1=v=>v==null?'-':(v/60).toFixed(1),hh=v=>v==null?null:v/60;
+const cg=(a,b)=>a==null||b==null?'<td>-</td>':`<td class="${a>b?'up':'dn'}">${a>b?'+':''}${((a-b)/60).toFixed(1)}</td>`;
+const hd='<th>Trips</th><th>Average (h)</th><th>Median (h)</th><th>Avg change (h)</th><th>Median change (h)</th><th>Prev trips</th><th>Median bar</th>';
+const cells=(c,p,mx)=>`<td>${c.n}${c.n<10?'*':''}</td><td>${f1(c.av)}</td><td>${f1(c.md)}</td>${cg(c.av,p.av)}${cg(c.md,p.md)}<td>${p.n}</td><td style="width:110px"><div style="background:#5ee1c4;height:10px;border-radius:3px;width:${(c.md||0)/mx*100}%"></div></td>`;
+function tbl(cur,prev,kf,first,sel){const rows=[...new Set(cur.map(kf))].map(k=>({k,c:sm(cur.filter(a=>kf(a)==k)),p:sm(prev.filter(a=>kf(a)==k))})).sort((a,b)=>b.c.n-a.c.n),mx0=Math.max(...rows.map(r=>r.c.md||0),1);
+return rows.length?`<table><tr><th>${first}</th>${hd}</tr>${rows.map(r=>`<tr data-k="${E(r.k)}" style="cursor:pointer;${r.k==sel?'background:#1d2b4a':''}"><th>${r.k}</th>${cells(r.c,r.p,mx0)}</tr>`).join('')}</table>`:'<p>No trips in this period</p>'}
+t1.onclick=e=>{const r=e.target.closest('tr[data-k]');if(r){F.mi=F.mi==r.dataset.k?'':r.dataset.k;F.tp='';mi.value=F.mi;tp.value='';draw()}};
+t2.onclick=e=>{const r=e.target.closest('tr[data-k]');if(r){F.tp=F.tp==r.dataset.k?'':r.dataset.k;tp.value=F.tp;draw()}};
+pl.onchange=draw;
+function drawT(){const[fr0,to0,pf,pe]=win();if(pl.value!='c'){F.fr=fr0;fr.value=fr0}F.to=to0;to.value=to0;
+const bs=(sm1,st1)=>T.filter(x=>(sm1||!F.mi||x.m==F.mi)&&(st1||!F.tp||tk(x)==F.tp)&&(!F.ve||x.v.toUpperCase().includes(F.ve.toUpperCase()))),sp=a=>[a.filter(x=>inr(x,fr0,to0)),a.filter(x=>inr(x,pf,pe))];
+const[mc,mp]=sp(bs(1,0)),[rc,rp]=sp(bs(0,1)),[B1,B0]=sp(bs(0,0)),c=sm(B1),p=sm(B0);
+$('#pd').textContent=`This period: ${dmy(fr0)} to ${dmy(to0)}. Compared with: ${dmy(pf)} to ${dmy(pe)}. Transit = mine exit to plant entry.`;
+$('#tl').innerHTML=[['Trips',c.n,dl(c.n,p.n||null,'',1)],['Average transit (h)',f1(c.av),dl(hh(c.av),hh(p.av),' h')],['Median transit (h)',f1(c.md),dl(hh(c.md),hh(p.md),' h')],['Avg plant TAT (min)',c.pt==null?'-':c.pt.toFixed(0),dl(c.pt,p.pt,' min')]].map(t=>`<div class="t"><small>${t[0]}</small><b>${t[1]}</b>${t[2]}</div>`).join('');
+$('#t1').innerHTML=tbl(mc,mp,a=>a.m,'Mine',F.mi);
+$('#h2').textContent='Transit by transporter'+(F.mi?' on '+F.mi:' (all mines)');$('#t2').innerHTML=tbl(rc,rp,tk,'Transporter',F.tp);
+const key=hs.value,rows=Array.from({length:8},(_,i)=>{const f=a=>a.filter(x=>x[key]!=null&&Math.floor(hr(x[key])/3)==i);return{i,c:sm(f(B1)),p:sm(f(B0))}}),mx=Math.max(...rows.map(r=>r.c.md||0),1);
+$('#h3').textContent='Time of day: '+(F.mi||'all mines')+', '+(F.tp||'all transporters');
+$('#t3').innerHTML=`<table><tr><th>${key=='a'?'Mine exit':'Plant entry'} time</th>${hd}<th>No-entry hours</th></tr>${rows.map(r=>`<tr><th>${pad(r.i*3)}:00 to ${pad(r.i*3+3)}:00</th>${cells(r.c,r.p,mx)}<td class="up">${ne(r.i)}</td></tr>`).join('')}</table>`;
+const mr=[...new Set(mc.map(a=>a.m))].map(m=>({m,c:sm(mc.filter(a=>a.m==m))})).filter(r=>r.c.md!=null).sort((a,b)=>b.c.md-a.c.md);
+$('#ins').innerHTML=mr.length?`Slowest mine: <b>${mr[0].m}</b>, median ${f1(mr[0].c.md)} h, average ${f1(mr[0].c.av)} h, ${mr[0].c.n} trips. Fastest: <b>${mr[mr.length-1].m}</b>, median ${f1(mr[mr.length-1].c.md)} h.`:'';
+{const[g,w,H]=cv('c4',300),h24=Array.from({length:24},(_,i)=>B1.filter(z=>z[key]!=null&&hr(z[key])==i)),md=h24.map(a=>hh(q(a.filter(z=>z.tr!=null).map(z=>z.tr),.5))),
+mv=Math.max(...md.filter(v=>v!=null),1)*1.08,ys=mv<=10?2:mv<=30?5:10,ym=Math.ceil(mv/ys)*ys,tm=Math.max(4,Math.ceil(Math.max(...h24.map(a=>a.length),1)/4)*4),
+L=48,R=44,TP=26,BT=40,pw=w-L-R,ph=H-TP-BT,bw=pw/24,Y=v=>TP+ph-v/ym*ph,Yt=v=>TP+ph-v/tm*ph;
+$('#hl').textContent=key=='a'?'mine exit':'plant entry';
+[[7,10],[14,16]].forEach(([a,b])=>{g.fillStyle='rgba(255,90,90,.25)';g.fillRect(L+a*bw,TP,(b-a)*bw,ph);g.fillStyle='#ffb3b3';g.textAlign='center';g.fillText('no entry',L+(a+b)/2*bw,TP+14);g.fillText(pad(a)+'-'+pad(b)+'h',L+(a+b)/2*bw,TP+30)});
+g.lineWidth=1;for(let v=0;v<=ym;v+=ys){g.strokeStyle='#33415f';g.beginPath();g.moveTo(L,Y(v));g.lineTo(w-R,Y(v));g.stroke();g.fillStyle='#5ee1c4';g.textAlign='right';g.fillText(v,L-6,Y(v)+4)}
+for(let k=0;k<=4;k++){g.fillStyle='#ffc857';g.textAlign='left';g.fillText(Math.round(tm*k/4),w-R+6,Yt(tm*k/4)+4)}
+g.textAlign='left';g.fillStyle='#5ee1c4';g.fillText('Median transit (h)',2,14);g.fillStyle='#ffc857';g.textAlign='right';g.fillText('Trips',w-2,14);
+md.forEach((v,i)=>{const X=L+i*bw;if(v!=null){const bh=v/ym*ph;g.fillStyle='#5ee1c4';g.fillRect(X+2,TP+ph-bh,bw-4,bh);g.fillStyle='#fff';g.textAlign='center';g.fillText(v.toFixed(v<10?1:0),X+bw/2,TP+ph-bh-4)}g.fillStyle='#e6eeff';g.textAlign='center';g.fillText(pad(i),X+bw/2,H-22)});
+g.fillStyle='#c3d0ee';g.textAlign='center';g.fillText((key=='a'?'Mine exit':'Plant entry')+' hour of day (00-23)',L+pw/2,H-5);
+g.strokeStyle='#ffc857';g.lineWidth=2;g.beginPath();h24.forEach((a,i)=>{const X=L+i*bw+bw/2;i?g.lineTo(X,Yt(a.length)):g.moveTo(X,Yt(a.length))});g.stroke();g.fillStyle='#ffc857';h24.forEach((a,i)=>{g.beginPath();g.arc(L+i*bw+bw/2,Yt(a.length),3,0,7);g.fill()})}
+const A=bs(0,0),ds=[...new Set(A.map(a=>a.d))].filter(d=>d<=to0).sort().slice(-30),tv=a=>a.filter(z=>z.tr!=null).map(z=>z.tr),pp=ts.value=='p',dy=d=>A.filter(a=>a.d==d);
+lc('c3',ds,pp?[['Average plant TAT (min)','#6ea8ff',ds.map(d=>avg(dy(d).filter(z=>z.pt!=null).map(z=>z.pt)))]]:[['Average transit (h)','#5ee1c4',ds.map(d=>hh(avg(tv(dy(d)))))],['Median transit (h)','#ffc857',ds.map(d=>hh(q(tv(dy(d)),.5)))]],pp?'Minutes':'Hours')}
+const TC=['#5ee1c4','#6ea8ff','#ffc857','#ff8fab','#c3a1ff','#9be564','#ff9f5a'],MK=['receipt','trips','ccl','nml','cons','stock','days'];
+function lc(id,ds,sr,tit){const c=$('#'+id);c.dataset.mw=Math.max(560,ds.length*44+90);const[g,w,H]=cv(id,330);if(!ds.length){empty(g,w,H);return}
+const all=sr.flatMap(s=>s[2]).filter(v=>v!=null),mx=Math.max(...all,1)*1.1,e=Math.pow(10,Math.floor(Math.log10(mx/5))),f=mx/5/e,ys=(f<=1?1:f<=2?2:f<=5?5:10)*e,ym=Math.ceil(mx/ys-1e-9)*ys,L=64,R=18,TP=36,BT=52,pw=w-L-R,ph=H-TP-BT,n=ds.length,gx=i=>L+pw*(i+.5)/n,gy=v=>TP+ph-v/ym*ph,fv=v=>Math.abs(v)>=1000?Math.round(v).toLocaleString('en-IN'):+v.toFixed(1);
+for(let v=0;v<=ym+ys/2;v+=ys){g.strokeStyle='#33415f';g.lineWidth=1;g.beginPath();g.moveTo(L,gy(v));g.lineTo(w-R,gy(v));g.stroke();g.fillStyle='#e6eeff';g.textAlign='right';g.fillText(fv(v),L-7,gy(v)+4)}
+g.save();g.translate(13,TP+ph/2);g.rotate(-Math.PI/2);g.fillStyle='#c3d0ee';g.textAlign='center';g.fillText(tit,0,0);g.restore();
+sr.forEach((s,k)=>{g.fillStyle=s[1];g.fillRect(L+k*190,8,14,14);g.textAlign='left';g.fillStyle='#fff';g.fillText(s[0],L+k*190+19,20)});
+ds.forEach((d,i)=>{if(n<=24||i%2==0){g.fillStyle='#e6eeff';g.textAlign='center';g.fillText(dmy(d).slice(0,5),gx(i),H-30)}});g.fillStyle='#c3d0ee';g.textAlign='center';g.fillText('Date (by plant entry day, dd-mm)',L+pw/2,H-8);
+sr.forEach((s,k)=>{g.strokeStyle=s[1];g.lineWidth=2.5;g.beginPath();let b=0;s[2].forEach((v,i)=>{if(v==null){b=0;return}b?g.lineTo(gx(i),gy(v)):g.moveTo(gx(i),gy(v));b=1});g.stroke();
+s[2].forEach((v,i)=>{if(v==null)return;g.fillStyle=s[1];g.beginPath();g.arc(gx(i),gy(v),4,0,7);g.fill();if(n<=16||i==n-1){g.fillStyle='#fff';g.textAlign='center';g.fillText(fv(v),gx(i),gy(v)+(k%2?19:-9))}})})}
+let TAB=1;const NM=m=>/chatti|kerandari/i.test(m),ne=i=>{const o=[];[[7,10],[14,16]].forEach(([a,b])=>{const s=Math.max(a,3*i),e=Math.min(b,3*i+3);if(e>s)o.push(pad(s)+'-'+pad(e))});return o.length?'No entry '+o.join(', '):''};
+function tab(n){TAB=n;v1.hidden=n!=1;v2.hidden=n!=2;b1.className=n==1?'p':'';b2.className=n==2?'p':'';draw()}
+function draw(){TAB==1?drawS():drawT()}
+rd.onchange=km.onchange=kr.onchange=draw;mf.onchange=async e=>{const d=rd.value,f=e.target.dataset.f,v=e.target.value;await pullMan(LS.cx_key);S.man=S.man||{};(S.man[d]=S.man[d]||{})[f]=v;save();syncMan();drawS()};
+function hb(id,items,col){const[g,w,H]=cv(id,Math.max(70,items.length*26+8));if(!items.length){empty(g,w,H);return}const mx=Math.max(...items.map(i=>i[1]),1),L=Math.min(125,w*.38);
+items.forEach((it,i)=>{const y=i*26+4,bw=(w-L-60)*it[1]/mx,v=Math.round(it[1]).toLocaleString('en-IN');g.fillStyle='#eaf0ff';g.textAlign='left';g.fillText(String(it[0]).slice(0,16),0,y+14);g.fillStyle=col;g.fillRect(L,y,bw,18);
+if(bw>58){g.fillStyle='#04251d';g.textAlign='right';g.fillText(v,L+bw-4,y+14)}else{g.fillStyle='#eaf0ff';g.textAlign='left';g.fillText(v,L+bw+4,y+14)}})}
+function drawS(){S.man=S.man||{};const ds=[...new Set(T.map(x=>x.d))].sort();if(!rd.value)rd.value=ds[ds.length-1]||'';const d=rd.value,A=T.filter(x=>x.d==d),M=S.man[d]||{};
+const sum=a=>a.reduce((s,x)=>s+(x.n||0),0),R=sum(A),cc=sum(A.filter(x=>!NM(x.m))),nn=R-cc,fm=v=>v==null||v===''?'-':Math.round(+v).toLocaleString('en-IN'),cs=M.cs?+M.cs:null,co=M.co?+M.co:null;
+const rn=M.rr&&M.rc?+M.rr-+M.rc:null;
+$('#s1').innerHTML=[['Receipt (MT)',fm(M.rr),'Excel: '+(R||!A.length?fm(R):'0, re-fetch this day')],['Trips',M.rt||'-','Excel: '+A.length],['CCL (MT)',fm(M.rc),'Excel: '+fm(cc)],['NML (MT)',fm(rn),'Excel: '+fm(nn)],['Consumption (MT)',fm(M.co),'Norm: 30,000'],['Closing stock (MT)',fm(M.cs),''],['Stock days',cs==null?'-':(cs/30000).toFixed(1),'at 30,000 MT/day'+(co?'; at actual '+(cs/co).toFixed(1):'')]].map((t,i)=>`<div class="t" style="cursor:pointer;border-top:3px solid ${TC[i]};background:linear-gradient(180deg,${TC[i]}30,transparent)" onclick="km.value='${MK[i]}';draw();k5.scrollIntoView({behavior:'smooth'})"><small>${t[0]}</small><b style="color:${TC[i]}">${t[1]}</b><small>${t[2]}</small></div>`).join('');
+if(mf.dataset.d!=d){mf.dataset.d=d;mf.innerHTML=[['rr','Reported receipt (MT)'],['rt','Reported trips'],['rc','Reported CCL (MT)'],['co','Actual consumption (MT)'],['cs','Closing stock (MT)']].map(f=>`<label>${f[1]}<input type="number" data-f="${f[0]}" value="${M[f[0]]??''}"></label>`).join('')}
+const by=f=>{const m={};A.forEach(x=>{const k=f(x);m[k]=(m[k]||0)+(x.n||0)});return Object.entries(m).sort((a,b)=>b[1]-a[1])};hb('k1',by(x=>x.m),'#5ee1c4');hb('k2',by(tk),'#ffc857');
+const[g,w,H]=cv('k3',180),hv=Array.from({length:24},(_,i)=>avg(A.filter(z=>z.pt!=null&&hr(z.b)==i).map(z=>z.pt))),mx=Math.max(...hv.filter(v=>v!=null),1)*1.1,bw=(w-30)/24;
+if(!A.length)empty(g,w,H);else hv.forEach((v,i)=>{const X=30+i*bw;if(v!=null){const bh=v/mx*(H-40);g.fillStyle='#6ea8ff';g.fillRect(X+1,H-18-bh,bw-2,bh);if(bw>=19){g.fillStyle='#eaf0ff';g.textAlign='center';g.fillText(v.toFixed(0),X+bw/2,H-21-bh)}}if(i%3==0){g.fillStyle='#c3d0ee';g.textAlign='left';g.fillText(i,X,H-4)}});
+const ms=[...new Set(A.map(z=>z.m))].sort(),tn=[...new Set(A.map(tk))].sort(),u=a=>new Set(a.map(z=>z.v)).size;
+$('#k4').innerHTML=A.length?`<table><tr><th>Mine</th>${tn.map(t=>`<th>${t}</th>`).join('')}<th>All</th></tr>${ms.map(m=>`<tr><th>${m}</th>${tn.map(t=>`<td>${u(A.filter(z=>z.m==m&&tk(z)==t))||'-'}</td>`).join('')}<td>${u(A.filter(z=>z.m==m))}</td></tr>`).join('')}<tr><th>All</th>${tn.map(t=>`<td>${u(A.filter(z=>tk(z)==t))}</td>`).join('')}<td>${u(A)}</td></tr></table>`:'<p>No trips for this day</p>';
+const nd=+kr.value,ks=Array.from({length:nd},(_,i)=>iso(Date.parse(d||iso(Date.now()/6e4))/6e4-(nd-1-i)*D)),DY=x=>T.filter(z=>z.d==x),mn=(x,f)=>{const v=S.man[x]&&S.man[x][f];return v===undefined||v===''?null:+v},sx=a=>a.length?a.reduce((s,z)=>s+(z.n||0),0):null;
+const MT={receipt:['Receipt (MT)',[['Excel calculated','#5ee1c4',x=>sx(DY(x))],['Reported','#ffc857',x=>mn(x,'rr')]]],trips:['Trips',[['Excel calculated','#6ea8ff',x=>DY(x).length||null],['Reported','#ffc857',x=>mn(x,'rt')]]],
+ccl:['CCL (MT)',[['Excel calculated','#ffc857',x=>sx(DY(x).filter(z=>!NM(z.m)))],['Reported','#ff8fab',x=>mn(x,'rc')]]],nml:['NML (MT)',[['Excel calculated','#ff8fab',x=>sx(DY(x).filter(z=>NM(z.m)))],['Reported','#ffc857',x=>{const a=mn(x,'rr'),b=mn(x,'rc');return a==null||b==null?null:a-b}]]],
+cons:['Consumption (MT)',[['Actual','#c3a1ff',x=>mn(x,'co')],['Norm 30,000','#5ee1c4',x=>30000]]],stock:['Closing stock (MT)',[['Closing stock','#9be564',x=>mn(x,'cs')]]],
+days:['Stock days',[['At 30,000 MT/day','#ff9f5a',x=>{const v=mn(x,'cs');return v==null?null:v/30000}],['At actual consumption','#c3a1ff',x=>{const v=mn(x,'cs'),c=mn(x,'co');return v==null||!c?null:v/c}]]],
+tat:['Avg plant TAT (min)',[['Average plant TAT','#6ea8ff',x=>avg(DY(x).filter(z=>z.pt!=null).map(z=>z.pt))]]]},mm=MT[km.value];
+lc('k5',ks,mm[1].map(s=>[s[0],s[1],ks.map(x=>s[2](x))]),mm[0])
+}
+du.onchange=()=>{LS.cx_url=du.value.trim()};dk.onchange=()=>{LS.cx_key=dk.value};
+const call=(u,k,a,b)=>G()?new Promise((ok,no)=>google.script.run.withSuccessHandler(ok).withFailureHandler(e=>no(e)).getTrips(k,a,b)):fetch(`${u}?key=${encodeURIComponent(k)}&from=${a}&to=${b}`).then(r=>r.json());
+const syncMan=()=>{const k=LS.cx_key,j=JSON.stringify(S.man||{});if(!k)return;if(G())google.script.run.saveMan(k,j);else if(LS.cx_url)fetch(LS.cx_url,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({key:k,data:j})}).catch(()=>{})};
+const pullMan=k=>G()&&k?new Promise(ok=>google.script.run.withSuccessHandler(s=>{try{S.man=Object.assign({},S.man||{},JSON.parse(s||'{}'));save()}catch(e){}ok()}).withFailureHandler(()=>ok()).loadMan(k)):(k&&LS.cx_url?fetch(`${LS.cx_url}?key=${encodeURIComponent(k)}&op=load`).then(r=>r.json()).then(r=>{S.man=Object.assign({},S.man||{},JSON.parse(r.man||'{}'));save()}).catch(()=>{}):Promise.resolve());
+async function fd(){const u=LS.cx_url,k=LS.cx_key;if((!u&&!G())||!k){say('Open "Settings" and add the Drive script link and password first.');return}
+const had=F.fr,W=win(),f=[W[2],rd.value||W[2]].sort()[0],t=[W[1],rd.value||W[1]].sort().pop();$('#st').textContent='Fetching '+dmy(f)+' to '+dmy(t)+' from Drive...';
+let a=f,tot=0,fl=[],sk=[],bad=[];
+while(a<=t){const b=[iso(Date.parse(a)/6e4+6*D),t].sort()[0];$('#st').textContent=`Fetching ${dmy(a)} to ${dmy(b)} from Drive...`;
+try{const r=await call(u,k,a,b);if(r.error)throw Error(r.error);merge(r.trips.map(x=>({...x,a:pm(x.a),b:pm(x.b),g:pm(x.g),u:pm(x.u),o:pm(x.o),n:+x.n||0})));tot+=r.trips.length;fl.push(...r.files);sk=r.skipped||sk}
+catch(x){bad.push(dmy(a)+' to '+dmy(b)+': '+x.message)}
+a=iso(Date.parse(b)/6e4+D)}
+await pullMan(k);init(!had);say(`Fetched ${tot} trips.\n${fl.join('\n')}${bad.length?'\n\nFailed:\n'+bad.join('\n'):''}${sk.length?'\n\nIgnored (not .xlsx):\n'+sk.join('\n'):''}`)}
+addEventListener('resize',()=>T.length&&draw());
+(async()=>{const t=await kv('get','trips'),s=await kv('get','set');if(s)S=Object.assign(S,s);if(t){T=t;T.forEach(x=>{x.tr=x.a!=null&&x.b>=x.a?x.b-x.a:null;x.pt=x.o!=null&&x.o>=x.b?x.o-x.b:null;x.d=iso(x.b)})}init(true)})();
+</script></body></html>
