@@ -28,8 +28,8 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--ac)}#st{color:var(--m
 <div class="row"><button class="p" id="b1" onclick="tab(1)">Stock &amp; receipts</button><button id="b2" onclick="tab(2)">Transit delay</button></div>
 <div id="v1"><div class="row"><label>Day (by plant entry)<input type="date" id="rd"></label></div>
 <div class="tiles" id="s1"></div>
-<div class="g"><div class="c"><h2>Receipt by source mine (MT)</h2><canvas id="k1"></canvas></div><div class="c"><h2>Receipt by transporter (MT)</h2><canvas id="k2"></canvas></div>
-<div class="c"><h2>Average plant TAT by plant-entry hour, by stage (min)</h2><p>Stacked: entry to gross weighment, gross to sampling/tare, sampling/tare to exit. Sampling and tare times are almost the same, so the sampling time is used for both. Number on top = total minutes.</p><canvas id="k3" data-mw="700"></canvas></div><div class="c" style="grid-column:1/-1"><h2>Unique vehicles by mine and transporter</h2><div class="sc" id="k4"></div></div>
+<div class="g"><div class="g" style="grid-column:1/-1;margin-top:0"><div class="c"><h2>Receipt by source mine (MT)</h2><canvas id="k1"></canvas></div><div class="c"><h2>Receipt by transporter (MT)</h2><canvas id="k2"></canvas></div></div>
+<div class="c" style="grid-column:1/-1"><h2>Average plant TAT by plant-entry hour, by stage (min)</h2><p>Stacked: entry to gross weighment, gross to sampling/tare, sampling/tare to exit. Sampling and tare times are almost the same, so the sampling time is used for both. Number on top = total minutes.</p><canvas id="k3" data-mw="700"></canvas></div><div class="c" style="grid-column:1/-1"><h2>Unique vehicles by mine and transporter</h2><div class="sc" id="k4"></div></div>
 <div class="c" style="grid-column:1/-1"><h2>Trend</h2><p>Tap any tile above to jump here, or choose: <select id="km"><option value="receipt">Receipt (MT)</option><option value="trips">Trips</option><option value="ccl">CCL (MT)</option><option value="nml">NML (MT)</option><option value="cons">Consumption (MT)</option><option value="stock">Closing stock (MT)</option><option value="days">Stock days</option><option value="tat">Average plant TAT (min)</option></select> <select id="kr"><option value="7">last 7 days</option><option value="14">last 14 days</option><option value="30">last 30 days</option></select> ending on the selected day. Reported values appear only for days you typed them in.</p><canvas id="k5"></canvas></div></div>
 <details><summary id="mt">Daily entries (typed in)</summary><div class="c" style="margin-top:6px"><p>Saved per day, shared through Drive, and included in Export. Excel-calculated values stay beside the reported ones in the tiles above.</p><div class="row" id="mf"></div></div></details></div>
 <div id="v2" hidden>
@@ -157,9 +157,9 @@ function tab(n){TAB=n;v1.hidden=n!=1;v2.hidden=n!=2;b1.className=n==1?'p':'';b2.
 function draw(){TAB==1?drawS():drawT()}
 rd.onchange=km.onchange=kr.onchange=draw;const setM=e=>{const d=rd.value,o=(S.man=S.man||{})[d]=S.man[d]||{};o[e.target.dataset.f]=e.target.value;o._t=Date.now();save();drawS()};
 mf.oninput=setM;mf.onchange=e=>{setM(e);syncMan()};
-function hb(id,items,col){const[g,w,H]=cv(id,Math.max(70,items.length*26+8));if(!items.length){empty(g,w,H);return}const mx=Math.max(...items.map(i=>i[1]),1),L=Math.min(125,w*.38);
-items.forEach((it,i)=>{const y=i*26+4,bw=(w-L-60)*it[1]/mx,v=Math.round(it[1]).toLocaleString('en-IN');g.fillStyle='#eaf0ff';g.textAlign='left';g.fillText(String(it[0]).slice(0,16),0,y+14);g.fillStyle=col;g.fillRect(L,y,bw,18);
-if(bw>58){g.fillStyle='#04251d';g.textAlign='right';g.fillText(v,L+bw-4,y+14)}else{g.fillStyle='#eaf0ff';g.textAlign='left';g.fillText(v,L+bw+4,y+14)}})}
+function hb(id,items,col){const[g,w,H]=cv(id,Math.max(70,items.length*46+8));if(!items.length){empty(g,w,H);return}const mx=Math.max(...items.map(i=>i[1]),1),W=w-76;
+items.forEach((it,i)=>{const y=i*46+4,bw=Math.max(2,W*it[1]/mx),v=Math.round(it[1]).toLocaleString('en-IN');let nm=String(it[0]);g.textAlign='left';g.fillStyle='#fff';while(nm.length>3&&g.measureText(nm).width>w-4)nm=nm.slice(0,-2);if(nm!=String(it[0]))nm+='..';g.fillText(nm,0,y+13);g.fillStyle=col;g.fillRect(0,y+19,bw,20);
+if(bw>62){g.fillStyle='#04251d';g.textAlign='right';g.fillText(v,bw-4,y+34)}else{g.fillStyle='#eaf0ff';g.textAlign='left';g.fillText(v,bw+5,y+34)}})}
 function drawS(){S.man=S.man||{};const ds=[...new Set(T.map(x=>x.d))].sort();if(!rd.value)rd.value=ds[ds.length-1]||'';const d=rd.value,A=T.filter(x=>x.d==d),M=S.man[d]||{};
 const sum=a=>a.reduce((s,x)=>s+(x.n||0),0),R=sum(A),cc=sum(A.filter(x=>!NM(x.m))),nn=R-cc,fm=v=>v==null||v===''?'-':Math.round(+v).toLocaleString('en-IN'),cs=M.cs?+M.cs:null,co=M.co?+M.co:null;
 const rn=M.rr&&M.rc?+M.rr-+M.rc:null;
