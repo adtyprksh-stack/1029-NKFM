@@ -36,7 +36,7 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--ac)}#st{color:var(--m
 <div class="row">
 <label>Compare<select id="pl"><option value="7">Last 7 days vs previous 7</option><option value="14">Last 14 days vs previous 14</option><option value="30">Last 30 days vs previous 30</option><option value="c">Custom dates</option></select></label>
 <label>Period ends<input type="date" id="to"></label><label>From (custom only)<input type="date" id="fr"></label>
-<label>Mine<select id="mi"></select></label><label>Transporter<select id="tp"></select></label><label>Vehicle<input id="ve" size="10" placeholder="search"></label></div>
+<label>Mine<select id="mi"></select></label><label>Transporter<select id="tp"></select></label><label>Vehicle<select id="ve"></select></label></div>
 <div class="sub" id="pd"></div><div id="ins" style="margin:6px 0;font-size:15px"></div>
 <div class="tiles" id="tl"></div>
 <div class="g">
@@ -87,7 +87,7 @@ const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null,tk=x=>S.trk=='t'?x.t:
 let AC={};const auto=m=>AC[m]??=(()=>{const v=T.filter(x=>x.m==m&&x.tr!=null).map(x=>x.tr),p=q(v,.25);return p==null?0:Math.round(p/5)*5})();
 const bm=m=>S.bm[m]!=null&&S.bm[m]!==''?+S.bm[m]:auto(m);
 const late=x=>x.tr!=null&&x.tr>bm(x.m)+S.tol,over=x=>x.tr==null?0:Math.max(0,x.tr-bm(x.m));
-const base=()=>T.filter(x=>(!F.mi||x.m==F.mi)&&(!F.tp||tk(x)==F.tp)&&(!F.ve||x.v.toUpperCase().includes(F.ve.toUpperCase())));
+const base=()=>T.filter(x=>(!F.mi||x.m==F.mi)&&(!F.tp||tk(x)==F.tp)&&(!F.ve||x.v==F.ve));
 const inr=(x,a,b)=>x.d>=a&&x.d<=b;
 function fill(id,l,first,cur){const e=$(id);e.innerHTML=`<option value="">${first}</option>`+l.map(v=>`<option>${v}</option>`).join('');e.value=cur&&l.includes(cur)?cur:''}
 function init(reset){const ds=[...new Set(T.map(x=>x.d))].sort();
@@ -98,7 +98,7 @@ fr.value=F.fr;to.value=F.to;if(reset||!rd.value)rd.value=F.to;$('#trk').value=S.
 $('#st').textContent=T.length?`${T.length} trips saved on this device, ${dmy(ds[0])} to ${dmy(ds[ds.length-1])}. Dates use plant entry day.`:'Add a Coal Trip Report (.xlsx) to begin.';draw()}
 function rng(n){const ds=[...new Set(T.map(x=>x.d))].sort();if(!ds.length)return;F.to=ds[ds.length-1];F.fr=n<0?ds[0]:n==0?F.to:iso(Date.parse(F.to)/6e4-(n-1)*D);fr.value=F.fr;to.value=F.to;draw()}
 fr.onchange=to.onchange=()=>{F.fr=fr.value;F.to=to.value;draw()};
-mi.onchange=()=>{F.mi=mi.value;draw()};tp.onchange=()=>{F.tp=tp.value;draw()};ve.oninput=()=>{F.ve=ve.value;draw()};hs.onchange=ts.onchange=draw;
+mi.onchange=()=>{F.mi=mi.value;draw()};tp.onchange=()=>{F.tp=tp.value;draw()};ve.onchange=()=>{F.ve=ve.value;draw()};hs.onchange=ts.onchange=draw;
 $('#trk').onchange=e=>{S.trk=e.target.value;F.tp='';save();init()};
 
 function cv(id,h){const c=$('#'+id),w=Math.max(c.parentNode.clientWidth-20,+c.dataset.mw||0),d=devicePixelRatio||1;c.width=w*d;c.height=h*d;c.style.height=h+'px';c.style.width=w+'px';const x=c.getContext('2d');x.scale(d,d);x.font='600 13px system-ui';c.hits=[];
@@ -118,6 +118,7 @@ t1.onclick=e=>{const r=e.target.closest('tr[data-k]');if(r){F.mi=F.mi==r.dataset
 t2.onclick=e=>{const r=e.target.closest('tr[data-k]');if(r){F.tp=F.tp==r.dataset.k?'':r.dataset.k;tp.value=F.tp;draw()}};
 pl.onchange=draw;
 function drawT(){const[fr0,to0,pf,pe]=win();if(pl.value!='c'){F.fr=fr0;fr.value=fr0}F.to=to0;to.value=to0;
+{const vl=[...new Set(T.filter(x=>inr(x,fr0,to0)&&(!F.mi||x.m==F.mi)&&(!F.tp||tk(x)==F.tp)).map(x=>x.v))].filter(Boolean).sort();fill('#ve',vl,'All vehicles ('+vl.length+')',F.ve);F.ve=ve.value}
 const bs=(sm1,st1)=>T.filter(x=>(sm1||!F.mi||x.m==F.mi)&&(st1||!F.tp||tk(x)==F.tp)&&(!F.ve||x.v.toUpperCase().includes(F.ve.toUpperCase()))),sp=a=>[a.filter(x=>inr(x,fr0,to0)),a.filter(x=>inr(x,pf,pe))];
 const[mc,mp]=sp(bs(1,0)),[rc,rp]=sp(bs(0,1)),[B1,B0]=sp(bs(0,0)),c=sm(B1),p=sm(B0);
 $('#pd').textContent=`This period: ${dmy(fr0)} to ${dmy(to0)}. Compared with: ${dmy(pf)} to ${dmy(pe)}. Transit = mine exit to plant entry.`;
@@ -154,7 +155,8 @@ s[2].forEach((v,i)=>{if(v==null)return;g.fillStyle=s[1];g.beginPath();g.arc(gx(i
 let TAB=1;const NM=m=>/chatti|kerandari/i.test(m),ne=i=>{const o=[];[[7,10],[14,16]].forEach(([a,b])=>{const s=Math.max(a,3*i),e=Math.min(b,3*i+3);if(e>s)o.push(pad(s)+'-'+pad(e))});return o.length?'No entry '+o.join(', '):''};
 function tab(n){TAB=n;v1.hidden=n!=1;v2.hidden=n!=2;b1.className=n==1?'p':'';b2.className=n==2?'p':'';draw()}
 function draw(){TAB==1?drawS():drawT()}
-rd.onchange=km.onchange=kr.onchange=draw;mf.onchange=async e=>{const d=rd.value,f=e.target.dataset.f,v=e.target.value;await pullMan(LS.cx_key);S.man=S.man||{};(S.man[d]=S.man[d]||{})[f]=v;save();syncMan();drawS()};
+rd.onchange=km.onchange=kr.onchange=draw;const setM=e=>{const d=rd.value,o=(S.man=S.man||{})[d]=S.man[d]||{};o[e.target.dataset.f]=e.target.value;o._t=Date.now();save();drawS()};
+mf.oninput=setM;mf.onchange=e=>{setM(e);syncMan()};
 function hb(id,items,col){const[g,w,H]=cv(id,Math.max(70,items.length*26+8));if(!items.length){empty(g,w,H);return}const mx=Math.max(...items.map(i=>i[1]),1),L=Math.min(125,w*.38);
 items.forEach((it,i)=>{const y=i*26+4,bw=(w-L-60)*it[1]/mx,v=Math.round(it[1]).toLocaleString('en-IN');g.fillStyle='#eaf0ff';g.textAlign='left';g.fillText(String(it[0]).slice(0,16),0,y+14);g.fillStyle=col;g.fillRect(L,y,bw,18);
 if(bw>58){g.fillStyle='#04251d';g.textAlign='right';g.fillText(v,L+bw-4,y+14)}else{g.fillStyle='#eaf0ff';g.textAlign='left';g.fillText(v,L+bw+4,y+14)}})}
@@ -178,8 +180,11 @@ lc('k5',ks,mm[1].map(s=>[s[0],s[1],ks.map(x=>s[2](x))]),mm[0])
 }
 du.onchange=()=>{LS.cx_url=du.value.trim()};dk.onchange=()=>{LS.cx_key=dk.value};
 const call=(u,k,a,b)=>G()?new Promise((ok,no)=>google.script.run.withSuccessHandler(ok).withFailureHandler(e=>no(e)).getTrips(k,a,b)):fetch(`${u}?key=${encodeURIComponent(k)}&from=${a}&to=${b}`).then(r=>r.json());
-const syncMan=()=>{const k=LS.cx_key,j=JSON.stringify(S.man||{});if(!k)return;if(G())google.script.run.saveMan(k,j);else if(LS.cx_url)fetch(LS.cx_url,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({key:k,data:j})}).catch(()=>{})};
-const pullMan=k=>G()&&k?new Promise(ok=>google.script.run.withSuccessHandler(s=>{try{S.man=Object.assign({},S.man||{},JSON.parse(s||'{}'));save()}catch(e){}ok()}).withFailureHandler(()=>ok()).loadMan(k)):(k&&LS.cx_url?fetch(`${LS.cx_url}?key=${encodeURIComponent(k)}&op=load`).then(r=>r.json()).then(r=>{S.man=Object.assign({},S.man||{},JSON.parse(r.man||'{}'));save()}).catch(()=>{}):Promise.resolve());
+const mrg=(a,b)=>{const o={...a};for(const d in b)if(!o[d]||(b[d]._t||0)>(o[d]._t||0))o[d]=b[d];return o},ok2=m=>{mg.textContent=m};
+const syncMan=()=>{const k=LS.cx_key,j=JSON.stringify(S.man||{});if(!k)return;
+if(G())google.script.run.withSuccessHandler(r=>ok2(r?'Daily entries saved to Drive.':'Entries NOT saved to Drive: wrong password')).withFailureHandler(e=>ok2('Entries NOT saved to Drive: '+e.message)).saveMan(k,j);
+else if(LS.cx_url)fetch(LS.cx_url,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({key:k,data:j})}).then(r=>r.json()).then(r=>ok2(r.ok?'Daily entries saved to Drive.':'Entries NOT saved to Drive: '+(r.error||'check the script permission and redeploy'))).catch(()=>ok2('Entries saved on this device only (could not reach Drive).'))};
+const pullMan=k=>G()&&k?new Promise(ok=>google.script.run.withSuccessHandler(s=>{try{S.man=mrg(S.man||{},JSON.parse(s||'{}'));save()}catch(e){}ok()}).withFailureHandler(()=>ok()).loadMan(k)):(k&&LS.cx_url?fetch(`${LS.cx_url}?key=${encodeURIComponent(k)}&op=load`).then(r=>r.json()).then(r=>{S.man=mrg(S.man||{},JSON.parse(r.man||'{}'));save()}).catch(()=>{}):Promise.resolve());
 async function fd(){const u=LS.cx_url,k=LS.cx_key;if((!u&&!G())||!k){say('Open "Settings" and add the Drive script link and password first.');return}
 const had=F.fr,W=win(),f=[W[2],rd.value||W[2]].sort()[0],t=[W[1],rd.value||W[1]].sort().pop();$('#st').textContent='Fetching '+dmy(f)+' to '+dmy(t)+' from Drive...';
 let a=f,tot=0,fl=[],sk=[],bad=[];
@@ -187,7 +192,7 @@ while(a<=t){const b=[iso(Date.parse(a)/6e4+6*D),t].sort()[0];$('#st').textConten
 try{const r=await call(u,k,a,b);if(r.error)throw Error(r.error);merge(r.trips.map(x=>({...x,a:pm(x.a),b:pm(x.b),g:pm(x.g),u:pm(x.u),o:pm(x.o),n:+x.n||0})));tot+=r.trips.length;fl.push(...r.files);sk=r.skipped||sk}
 catch(x){bad.push(dmy(a)+' to '+dmy(b)+': '+x.message)}
 a=iso(Date.parse(b)/6e4+D)}
-await pullMan(k);init(!had);say(`Fetched ${tot} trips.\n${fl.join('\n')}${bad.length?'\n\nFailed:\n'+bad.join('\n'):''}${sk.length?'\n\nIgnored (not .xlsx):\n'+sk.join('\n'):''}`)}
+await pullMan(k);syncMan();init(!had);say(`Fetched ${tot} trips.\n${fl.join('\n')}${bad.length?'\n\nFailed:\n'+bad.join('\n'):''}${sk.length?'\n\nIgnored (not .xlsx):\n'+sk.join('\n'):''}`)}
 addEventListener('resize',()=>T.length&&draw());
 (async()=>{const t=await kv('get','trips'),s=await kv('get','set');if(s)S=Object.assign(S,s);if(t){T=t;T.forEach(x=>{x.tr=x.a!=null&&x.b>=x.a?x.b-x.a:null;x.pt=x.o!=null&&x.o>=x.b?x.o-x.b:null;x.d=iso(x.b)})}init(true)})();
 </script></body></html>
