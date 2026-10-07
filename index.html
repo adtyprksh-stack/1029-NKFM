@@ -25,7 +25,7 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--ac)}#st{color:var(--m
 <div class="row">
 <button class="p" onclick="fd()">Fetch from Drive</button><button onclick="fx.click()">Add Excel reports</button><button onclick="ex()">Export history</button><button onclick="fj.click()">Import history</button><button onclick="clr()">Clear data</button>
 <input id="fx" type="file" accept=".xlsx" multiple hidden><input id="fj" type="file" accept=".json" hidden></div>
-<div class="row"><button class="p" id="b1" onclick="tab(1)">Stock &amp; receipts</button><button id="b2" onclick="tab(2)">Transit delay</button></div>
+<div class="row"><button class="p" id="b1" onclick="tab(1)">Stock &amp; receipts</button><button id="b2" onclick="tab(2)">Transit delay</button><button id="b3" onclick="tab(3)">Cycle study</button></div>
 <div id="v1"><div class="row"><label>Day (by plant entry)<input type="date" id="rd"></label></div>
 <div class="tiles" id="s1"></div>
 <div class="g"><div class="g" style="grid-column:1/-1;margin-top:0"><div class="c"><h2>Receipt by source mine (MT)</h2><canvas id="k1"></canvas></div><div class="c"><h2>Receipt by transporter (MT)</h2><canvas id="k2"></canvas></div></div>
@@ -46,6 +46,17 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--ac)}#st{color:var(--m
 <div class="c" style="grid-column:1/-1"><h2>Transit by hour of day</h2><p>Median and average by <span id="hl">mine exit</span> hour. Columns = the selected period; lines = <select id="cm"><option value="p">the previous period (same length, just before)</option><option value="d">the latest day (period end date)</option></select>. Red bands = no entry on route, 07:00 to 10:00 and 14:00 to 16:00.</p><canvas id="c4" data-mw="720"></canvas></div>
 <div class="c" style="grid-column:1/-1"><h2>Trend</h2><p><select id="ts"><option value="t">Transit: average and median (h)</option><option value="p">Average plant TAT (min)</option></select> daily: the previous period, then the selected period (shaded)</p><canvas id="c3"></canvas></div></div>
 </div>
+<div id="v3" hidden>
+<div class="row"><label>Mine<select id="cmi"></select></label>
+<label>Period<select id="cdy"><option value="7">last 7 days</option><option value="14" selected>last 14 days</option><option value="30">last 30 days</option><option value="999">all data</option></select></label>
+<label>Gap limit for this mine (hours)<input type="number" id="cgl" min="1" step="1" style="width:110px"></label></div>
+<div class="sub" id="csm"></div><div class="tiles" id="ctl" style="margin-top:8px"></div>
+<div class="g">
+<div class="c" style="grid-column:1/-1"><h2>Typical cycle (median hours per stage)</h2><p>Cycle = mine exit, plant entry, plant exit, next mine exit (same vehicle, same mine). The biggest block is the major holdup. "Back to loading" includes the empty run plus waiting and loading at the mine.</p><canvas id="k6"></canvas></div>
+<div class="c" style="grid-column:1/-1"><h2>10 longest cycles</h2><p>Tap a row to see its timeline. Red = the biggest stage in that cycle.</p><div class="sc" id="cl"></div></div>
+<div class="c" style="grid-column:1/-1"><h2 id="ch2">Selected cycle</h2><canvas id="k7" data-mw="600"></canvas></div>
+<div class="c" style="grid-column:1/-1"><h2>Loaded transit by mine exit time</h2><p>Trips from this mine in the period. * = fewer than 10 trips. Look for hours where transit jumps; that is the gate effect.</p><div class="sc" id="ch"></div></div>
+</div></div>
 <details><summary>Settings</summary><div class="c" style="margin-top:6px"><div class="row">
 <label>Transporter source field<select id="trk"><option value="c">Challan created by (default source)</option><option value="t">Transporter column</option></select></label>
 <label>Drive script link<input id="du" size="28" placeholder="https://script.google.com/.../exec"></label><label>Drive password<input id="dk" type="password"></label></div>
@@ -156,8 +167,8 @@ ds.forEach((d,i)=>{if(n<=24||i%2==0){g.fillStyle='#e6eeff';g.textAlign='center';
 sr.forEach((s,k)=>{g.strokeStyle=s[1];g.lineWidth=2.5;g.beginPath();let b=0;s[2].forEach((v,i)=>{if(v==null){b=0;return}b?g.lineTo(gx(i),gy(v)):g.moveTo(gx(i),gy(v));b=1});g.stroke();
 s[2].forEach((v,i)=>{if(v==null)return;g.fillStyle=s[1];g.beginPath();g.arc(gx(i),gy(v),4,0,7);g.fill();if(n<=16||i==n-1){g.fillStyle='#fff';g.textAlign='center';g.fillText(fv(v),gx(i),gy(v)+(k%2?19:-9))}})})}
 let TAB=1;const NM=m=>/chatti|kerandari/i.test(m),ne=i=>{const o=[];[[7,10],[14,16]].forEach(([a,b])=>{const s=Math.max(a,3*i),e=Math.min(b,3*i+3);if(e>s)o.push(pad(s)+'-'+pad(e))});return o.length?'No entry '+o.join(', '):''};
-function tab(n){TAB=n;v1.hidden=n!=1;v2.hidden=n!=2;b1.className=n==1?'p':'';b2.className=n==2?'p':'';draw()}
-function draw(){TAB==1?drawS():drawT()}
+function tab(n){TAB=n;v1.hidden=n!=1;v2.hidden=n!=2;v3.hidden=n!=3;b1.className=n==1?'p':'';b2.className=n==2?'p':'';b3.className=n==3?'p':'';draw()}
+function draw(){TAB==1?drawS():TAB==2?drawT():drawC()}
 rd.onchange=km.onchange=kr.onchange=draw;const setM=e=>{const d=rd.value,o=(S.man=S.man||{})[d]=S.man[d]||{};o[e.target.dataset.f]=e.target.value;o._t=Date.now();save();drawS()};
 mf.oninput=setM;mf.onchange=e=>{setM(e);syncMan()};
 function hb(id,items,col){const[g,w,H]=cv(id,Math.max(70,items.length*46+8));if(!items.length){empty(g,w,H);return}const mx=Math.max(...items.map(i=>i[1]),1),W=w-76;
@@ -204,6 +215,36 @@ try{const r=await call(u,k,a,b);if(r.error)throw Error(r.error);merge(r.trips.ma
 catch(x){bad.push(dmy(a)+' to '+dmy(b)+': '+x.message)}
 a=iso(Date.parse(b)/6e4+D)}
 await pullMan(k);syncMan();init(!had);say(`Fetched ${tot} trips.\n${fl.join('\n')}${bad.length?'\n\nFailed:\n'+bad.join('\n'):''}${sk.length?'\n\nIgnored (not .xlsx):\n'+sk.join('\n'):''}`)}
+const CC=['#ffc857','#5ee1c4','#6ea8ff'],CN=['On road (loaded)','Inside plant','Back to loading'],vk=x=>String(x.v||'').toUpperCase().replace(/\s+/g,''),tl2=m=>dmy(iso(m)).slice(0,5)+' '+pad(hr(m))+':'+pad(Math.floor(m%60));let CSEL='';
+function cycles(m,f0,t0){const by={},ok=[],xc={sw:0,ts:0,gap:0,nn:0},tm=x=>x.a??x.b,lim=(S.gl&&S.gl[m]!=null&&S.gl[m]!==''?+S.gl[m]:24)*60;
+T.forEach(x=>{const k=vk(x);if(k)(by[k]=by[k]||[]).push(x);else if(x.m==m&&x.d>=f0&&x.d<=t0)xc.ts++});
+for(const k in by){const l=by[k].sort((p,r)=>tm(p)-tm(r));l.forEach((x,i)=>{if(x.m!=m||x.d<f0||x.d>t0)return;const y=l[i+1];
+if(x.a==null||x.o==null||x.o<x.b||x.tr==null){xc.ts++;return}
+if(!y){xc.nn++;return}if(y.m!=m){xc.sw++;return}
+if(y.a==null||y.a<x.o){xc.ts++;return}
+const gap=y.a-x.o;if(gap>lim){xc.gap++;return}
+ok.push({x,y,r:x.tr,p:x.o-x.b,b:gap,t:y.a-x.a})})}
+return{ok,xc}}
+function drawC(){const ms=[...new Set(T.map(x=>x.m))].sort();F.cm=F.cm&&ms.includes(F.cm)?F.cm:ms[0]||'';fill('#cmi',ms,'Choose a mine',F.cm);cmi.value=F.cm;const m=F.cm;
+if(!m){csm.textContent='Add trip data first.';return}
+S.gl=S.gl||{};cgl.value=S.gl[m]??24;
+const ds=T.map(x=>x.d).sort(),to0=ds[ds.length-1],n=+cdy.value,f0=iso(Date.parse(to0)/6e4-(n-1)*D),{ok,xc}=cycles(m,f0,to0),exl=xc.sw+xc.ts+xc.gap+xc.nn;
+csm.textContent=`${m}, ${dmy(f0)} to ${dmy(to0)}: ${ok.length+exl} trips = ${ok.length} cycles kept + ${exl} excluded (switched mine ${xc.sw}, gap above ${S.gl[m]??24} h ${xc.gap}, missing or odd timestamps ${xc.ts}, no next trip in data ${xc.nn}).`;
+const md=ok.length?[q(ok.map(z=>z.r),.5),q(ok.map(z=>z.p),.5),q(ok.map(z=>z.b),.5)]:[];
+$('#ctl').innerHTML=ok.length?[...CN.map((nm,k)=>[nm,f1(md[k]),CC[k],'hours (median)']),['Total, median cycle',f1(q(ok.map(z=>z.t),.5)),'#eaf0ff','hours'],['Cycles kept',ok.length,'#c3a1ff','']].map(t=>`<div class="t" style="border-top:3px solid ${t[2]}"><small>${t[0]}</small><b style="color:${t[2]}">${t[1]}</b><small>${t[3]}</small></div>`).join(''):'';
+{const[g,w,H]=cv('k6',80);if(!ok.length)empty(g,w,H);else{const tt=md[0]+md[1]+md[2];let x0=0;md.forEach((v,k)=>{const bw=w*v/tt;g.fillStyle=CC[k];g.fillRect(x0,16,bw,40);if(bw>110){g.fillStyle='#04251d';g.textAlign='center';g.fillText(f1(v)+' h, '+Math.round(v/tt*100)+'%',x0+bw/2,41)}x0+=bw})}}
+const top=[...ok].sort((a,b)=>b.t-a.t).slice(0,10),sel=ok.find(z=>z.x.i==CSEL)||top[0];
+cl.innerHTML=top.length?`<table><tr><th>Vehicle</th><th>Mine exit</th><th>Road (h)</th><th>Plant (h)</th><th>Back (h)</th><th>Total (h)</th></tr>${top.map(z=>{const mx=Math.max(z.r,z.p,z.b),c=v=>`<td${v==mx?' class="up"':''}>${f1(v)}</td>`;return`<tr data-i="${E(z.x.i)}" style="cursor:pointer;${z.x.i==sel.x.i?'background:#1d2b4a':''}"><th>${z.x.v}</th><td>${tl2(z.x.a)}</td>${c(z.r)}${c(z.p)}${c(z.b)}<td>${f1(z.t)}</td></tr>`}).join('')}</table>`:'<p>No cycles for these settings</p>';
+{const[g,w,H]=cv('k7',130);if(!sel)empty(g,w,H);else{const z=sel,s=[z.r,z.p,z.b],ts=[z.x.a,z.x.b,z.x.o,z.y.a],nm=['Mine exit','Plant entry','Plant exit','Next mine exit'],L=10,pw=w-20;let x0=L,lx=L;
+$('#ch2').textContent='Selected cycle: '+z.x.v+', total '+f1(z.t)+' h';
+CN.forEach((c,k)=>{const tx=c+' '+f1(s[k])+' h';g.fillStyle=CC[k];g.fillRect(lx,5,12,12);g.fillStyle='#fff';g.textAlign='left';g.fillText(tx,lx+17,16);lx+=g.measureText(tx).width+40});
+s.forEach((v,k)=>{const bw=pw*v/z.t;g.fillStyle=CC[k];g.fillRect(x0,30,bw,34);x0+=bw});
+ts.forEach((t,i)=>{const px=L+pw*(t-ts[0])/z.t;g.strokeStyle='#fff';g.lineWidth=1;g.beginPath();g.moveTo(px,30);g.lineTo(px,74+(i%2)*20);g.stroke();g.fillStyle='#e6eeff';g.textAlign=i==0?'left':i==3?'right':'center';g.fillText(nm[i]+' '+tl2(t),px,90+(i%2)*20)})}}
+const A=T.filter(x=>x.m==m&&x.d>=f0&&x.d<=to0&&x.a!=null);
+ch.innerHTML=`<table><tr><th>Mine exit time</th><th>Trips</th><th>Average (h)</th><th>Median (h)</th><th>No-entry hours</th></tr>${Array.from({length:8},(_,i)=>{const c=sm(A.filter(x=>Math.floor(hr(x.a)/3)==i));return`<tr><th>${pad(i*3)}:00 to ${pad(i*3+3)}:00</th><td>${c.n}${c.n<10?'*':''}</td><td>${f1(c.av)}</td><td>${f1(c.md)}</td><td class="up">${ne(i)}</td></tr>`}).join('')}</table>`}
+cmi.onchange=()=>{F.cm=cmi.value;CSEL='';draw()};cdy.onchange=draw;
+cgl.onchange=()=>{(S.gl=S.gl||{})[F.cm]=cgl.value;save();draw()};
+cl.onclick=e=>{const r=e.target.closest('tr[data-i]');if(r){CSEL=r.dataset.i;draw()}};
 addEventListener('resize',()=>T.length&&draw());
 (async()=>{const t=await kv('get','trips'),s=await kv('get','set');if(s)S=Object.assign(S,s);if(t){T=t;T.forEach(x=>{x.tr=x.a!=null&&x.b>=x.a?x.b-x.a:null;x.pt=x.o!=null&&x.o>=x.b?x.o-x.b:null;x.d=iso(x.b)})}init(true)})();
 </script></body></html>
