@@ -1,25 +1,25 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Coal transit delay dashboard</title>
+<title>COAL DASHBOARD NKSTPP</title>
 <style>
 :root{--bg:#070b14;--cd:#111a2e;--ln:#26324f;--tx:#eaf0ff;--mu:#c3d0ee;--ac:#5ee1c4;--bad:#ff7a7a;--ok:#7be0a0;--wn:#ffc857}
-*{box-sizing:border-box;margin:0}body{background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,sans-serif;padding:12px;max-width:1100px;margin:auto}
-h1{font:700 19px Georgia,serif}.sub{color:var(--mu);font-size:13px}
+*{box-sizing:border-box;margin:0}body{background:var(--bg);color:var(--tx);font:21px/1.45 system-ui,sans-serif;padding:12px;max-width:1100px;margin:auto}
+h1{font:700 27px Georgia,serif}.sub{color:var(--mu);font-size:18px}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:end;margin:10px 0}
-button,select,input{background:var(--cd);color:var(--tx);border:1px solid var(--ln);border-radius:6px;padding:7px 9px;font:inherit}
+button,select,input{background:var(--cd);color:var(--tx);border:1px solid var(--ln);border-radius:6px;padding:8px 11px;font:inherit;font-size:19px}
 button{cursor:pointer}button.p{background:var(--ac);color:#04251d;border:0;font-weight:700}
-label{display:flex;flex-direction:column;font-size:12px;color:var(--mu);gap:3px}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+label{display:flex;flex-direction:column;font-size:17px;color:var(--mu);gap:3px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}
 .t,.c{background:var(--cd);border:1px solid var(--ln);border-radius:8px;padding:10px}
-.t b{display:block;font-size:28px;margin-top:2px}.t small{color:var(--mu);font-size:12px}
-.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px;margin-top:10px}
-.c h2{font-size:14px;margin-bottom:2px}.c p{font-size:13px;color:var(--mu);margin-bottom:6px}
-canvas{display:block}.c{overflow-x:auto}th{color:#e6eeff}td{font-variant-numeric:tabular-nums}input[type=date]{min-width:150px}.sc{overflow-x:auto}
-table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:8px 10px;border-bottom:1px solid var(--ln);text-align:left;white-space:nowrap}
+.t b{display:block;font-size:39px;margin-top:2px}.t small{color:var(--mu);font-size:17px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin-top:10px}
+.c h2{font-size:20px;margin-bottom:2px}.c p{font-size:18px;color:var(--mu);margin-bottom:6px}
+canvas{display:block}.c{overflow-x:auto}th{color:#e6eeff}td{font-variant-numeric:tabular-nums}input[type=date]{min-width:210px}.sc{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:18px}th,td{padding:8px 10px;border-bottom:1px solid var(--ln);text-align:left;white-space:nowrap}
 td.h{text-align:center;cursor:pointer}.up{color:var(--bad)}.dn{color:var(--ok)}
-details{margin-top:10px}summary{cursor:pointer;color:var(--ac)}#st{color:var(--mu);font-size:12px}
-[hidden]{display:none!important}</style></head><body>
-<h1>Coal dashboard</h1>
+details{margin-top:10px}summary{cursor:pointer;color:var(--ac)}#st{color:var(--mu);font-size:17px}
+:root{color-scheme:dark}input[type=date]::-webkit-calendar-picker-indicator{opacity:1;cursor:pointer;width:1.3em;height:1.3em}[hidden]{display:none!important}</style></head><body>
+<h1>COAL DASHBOARD NKSTPP</h1>
 <div class="sub" id="st">Add a Coal Trip Report (.xlsx) to begin.</div>
 <pre id="mg" class="sub" style="white-space:pre-wrap"></pre>
 <div class="row">
@@ -101,8 +101,8 @@ fr.onchange=to.onchange=()=>{F.fr=fr.value;F.to=to.value;draw()};
 mi.onchange=()=>{F.mi=mi.value;draw()};tp.onchange=()=>{F.tp=tp.value;draw()};ve.onchange=()=>{F.ve=ve.value;draw()};hs.onchange=ts.onchange=draw;
 $('#trk').onchange=e=>{S.trk=e.target.value;F.tp='';save();init()};
 
-function cv(id,h){const c=$('#'+id),w=Math.max(c.parentNode.clientWidth-20,+c.dataset.mw||0),d=devicePixelRatio||1;c.width=w*d;c.height=h*d;c.style.height=h+'px';c.style.width=w+'px';const x=c.getContext('2d');x.scale(d,d);x.font='600 13px system-ui';c.hits=[];
-c.onclick=e=>{const r=c.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,k=c.hits.find(k=>px>=k[0]&&px<=k[1]&&py>=k[2]&&py<=k[3]);k&&k[4]()};return[x,w,h,c]}
+function cv(id,h){const c=$('#'+id),Z=1.4,W=Math.max(c.parentNode.clientWidth-20,(+c.dataset.mw||0)*Z),w=W/Z,d=devicePixelRatio||1;c.width=W*d;c.height=h*Z*d;c.style.height=h*Z+'px';c.style.width=W+'px';const x=c.getContext('2d');x.scale(d*Z,d*Z);x.font='600 13px system-ui';c.hits=[];
+c.onclick=e=>{const r=c.getBoundingClientRect(),px=(e.clientX-r.left)/Z,py=(e.clientY-r.top)/Z,k=c.hits.find(k=>px>=k[0]&&px<=k[1]&&py>=k[2]&&py<=k[3]);k&&k[4]()};return[x,w,h,c]}
 const empty=(x,w,h)=>{x.fillStyle='#c3d0ee';x.textAlign='center';x.fillText('No data for these filters',w/2,h/2)};
 const dl=(a,b,u,inv)=>{if(a==null||b==null)return'';const d=a-b;return`<small class="${d>0==!inv?'up':'dn'}">${d>0?'+':''}${d.toFixed(1)}${u} vs previous</small>`};
 const E=s=>String(s).replace(/"/g,'&quot;'),pad=n=>String(n).padStart(2,'0');
