@@ -23,7 +23,7 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--ac)}#st{color:var(--m
 <div class="sub" id="st">Add a Coal Trip Report (.xlsx) to begin.</div>
 <pre id="mg" class="sub" style="white-space:pre-wrap"></pre>
 <div class="row">
-<button class="p" onclick="fd()">Fetch from Drive</button><button onclick="fx.click()">Add Excel reports</button><button onclick="ex()">Export history</button><button onclick="fj.click()">Import history</button><button onclick="clr()">Clear data</button>
+<button class="p" onclick="fd()">Fetch from Drive</button><button onclick="fx.click()">Add Excel reports (trips or daily entries)</button><button onclick="ex()">Export history</button><button onclick="fj.click()">Import history</button><button onclick="clr()">Clear data</button>
 <input id="fx" type="file" accept=".xlsx,.xls" multiple hidden><input id="fj" type="file" accept=".json" hidden></div>
 <div class="row"><button class="p" id="b1" onclick="tab(1)">Stock &amp; receipts</button><button id="b2" onclick="tab(2)">Transit delay</button><button id="b3" onclick="tab(3)">Cycle study</button><button id="b4" onclick="tab(4)">Vehicles &amp; trips</button></div>
 <div id="v1"><div class="row"><label>Day (by plant entry)<input type="date" id="rd"></label></div>
@@ -96,10 +96,24 @@ function toTrips(rows){const hi=rows.findIndex(r=>r&&r.some(c=>String(c).trim().
 const h={};rows[hi].forEach((c,i)=>h[String(c).trim().toUpperCase()]=i);const o=[];
 for(const r of rows.slice(hi+1)){if(!r)continue;const g=k=>r[h[k]],id=g('TRIP ID');if(!id)continue;
 o.push({i:String(id),v:g('VEHICLE NO')||'',m:g('MINES')||'?',c:g('CHALLAN CREATED BY')||g('TRANSPORTER')||'?',t:g('TRANSPORTER')||g('CHALLAN CREATED BY')||'?',a:pm(g('MET')),b:pm(g('PLANT ENTRY TIME')),g:pm(g('GROSS WEIGHT TIME')),u:pm(g('UNLOADING TIME')),o:pm(g('PLANT OUT TIME')),n:+g('NET WEIGHT')||0})}return o}
+/*DAILY_START*/
+const hdr=(rows,t)=>rows.findIndex(r=>r&&r.some(c=>String(c).trim().toUpperCase()==t)),isDaily=rows=>hdr(rows,'TRIP ID')<0&&hdr(rows,'DATE')>=0&&['RECEIPT','CLOSING STOCK','CONSUMPTION'].some(t=>hdr(rows,t)>=0);
+function dparse(v){if(typeof v=='number')return v>20000?new Date(Math.round((v-25569)*864e5)).toISOString().slice(0,10):null;const t=String(v==null?'':v).trim();let m=/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{4})/.exec(t);if(m)return m[3]+'-'+String(+m[2]).padStart(2,'0')+'-'+String(+m[1]).padStart(2,'0');m=/^(\d{4})-(\d{2})-(\d{2})/.exec(t);return m?m[0]:null}
+function toDaily(rows){const hi=hdr(rows,'DATE'),h={};rows[hi].forEach((c,i)=>h[String(c).trim().toUpperCase()]=i);
+const FM={rr:'RECEIPT',rt:'TRIPS',co:'CONSUMPTION',cs:'CLOSING STOCK',rc:'CCL'},nv=v=>{if(v===''||v==null)return null;const n=+v;return isFinite(n)?Math.round(n*100)/100:null};
+S.man=S.man||{};let n=0,a='9999',b='0000';
+for(const r of rows.slice(hi+1)){if(!r)continue;const d=dparse(r[h['DATE']]);if(!d)continue;const o=S.man[d]=S.man[d]||{};
+for(const k in FM){const v=nv(r[h[FM[k]]]);if(v!=null)o[k]=v}
+const nm=nv(r[h['NML']]);if(o.rc==null&&nm!=null&&o.rr!=null)o.rc=Math.round((o.rr-nm)*100)/100;
+o._t=Date.now();n++;if(d<a)a=d;if(d>b)b=d}
+if(!n)throw Error('No dated rows found');return{n,a,b}}
+const mtx=()=>{const k=Object.keys(S.man||{}).filter(d=>Object.keys(S.man[d]).some(f=>f[0]!='_')).sort();return k.length?` ${k.length} daily entries, ${dmy(k[0])} to ${dmy(k[k.length-1])}.`:''};
+/*DAILY_END*/
 function merge(n){const m=new Map(T.map(x=>[x.i,x]));n.forEach(x=>m.set(x.i,x));T=[...m.values()].filter(x=>x.b!=null);
 T.forEach(x=>{x.tr=x.a!=null&&x.b>=x.a?x.b-x.a:null;x.pt=x.o!=null&&x.o>=x.b?x.o-x.b:null;x.d=iso(x.b)});AC={};CPC=null;PVC=null;save()}
-fx.onchange=async e=>{let ok=0,bad=[];for(const f of e.target.files){try{if(/\.xls$/i.test(f.name)){const tx=await f.text();if(!/<table/i.test(tx))throw Error('old .xls format, save as .xlsx');mergeCP(cpRows(tx))}else merge(toTrips(await xrows(await f.arrayBuffer())));ok++}catch(x){bad.push(f.name+': '+x.message)}}
-e.target.value='';if(bad.length)say('Could not read:\n'+bad.join('\n'));init(true)};
+fx.onchange=async e=>{let ok=0,nd=0,mn='',mx='',bad=[];for(const f of e.target.files){try{if(/\.xls$/i.test(f.name)){const tx=await f.text();if(!/<table/i.test(tx))throw Error('old .xls format, save as .xlsx');mergeCP(cpRows(tx))}else{const rw=await xrows(await f.arrayBuffer());if(isDaily(rw)){const r=toDaily(rw);nd+=r.n;if(!mn||r.a<mn)mn=r.a;if(r.b>mx)mx=r.b}else merge(toTrips(rw))}ok++}catch(x){bad.push(f.name+': '+x.message)}}
+e.target.value='';if(nd){save();syncMan()}init(true);if(nd&&!rd.value){rd.value=mx;draw()}
+if(nd)say(`Imported ${nd} daily entries, ${dmy(mn)} to ${dmy(mx)}. Entries already saved for these days were replaced.`+(bad.length?'\n\nCould not read:\n'+bad.join('\n'):''));else if(bad.length)say('Could not read:\n'+bad.join('\n'))};
 fj.onchange=async e=>{try{const j=JSON.parse(await e.target.files[0].text());merge(j.trips||[]);if(j.cp)mergeCP(j.cp);Object.assign(S,j.settings||{});save();init(true)}catch(x){say('Not a valid history file')}e.target.value=''};
 function ex(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({v:1,trips:T.map(({tr,pt,d,...r})=>r),cp:CP,settings:S})],{type:'application/json'}));a.download='coal_history.json';a.click()}
 function clr(){if(confirm('Delete all saved trips on this device? Export first if you need a backup.')){T=[];CP=[];CPC=null;PVC=null;AC={};save();init(true)}}
@@ -116,7 +130,7 @@ if(reset||!F.fr){F.fr=F.to=ds[ds.length-1]||''}
 fill('#mi',[...new Set(T.map(x=>x.m))].sort(),'All mines',F.mi);fill('#tp',[...new Set(T.map(tk))].sort(),'All transporters',F.tp);
 fr.value=F.fr;to.value=F.to;if(reset||!rd.value)rd.value=F.to;$('#trk').value=S.trk;du.value=LS.cx_url||'';dk.value=LS.cx_key||'';
 
-drawCpm();$('#st').textContent=T.length?`${T.length} trips saved on this device, ${dmy(ds[0])} to ${dmy(ds[ds.length-1])}. Dates use plant entry day.`:'Add a Coal Trip Report (.xlsx) to begin.';draw()}
+drawCpm();$('#st').textContent=T.length?`${T.length} trips saved on this device, ${dmy(ds[0])} to ${dmy(ds[ds.length-1])}. Dates use plant entry day.`:'Add a Coal Trip Report (.xlsx) to begin.';$('#st').textContent+=mtx();draw()}
 function rng(n){const ds=[...new Set(T.map(x=>x.d))].sort();if(!ds.length)return;F.to=ds[ds.length-1];F.fr=n<0?ds[0]:n==0?F.to:iso(Date.parse(F.to)/6e4-(n-1)*D);fr.value=F.fr;to.value=F.to;draw()}
 fr.onchange=to.onchange=()=>{F.fr=fr.value;F.to=to.value;draw()};
 mi.onchange=()=>{F.mi=mi.value;draw()};tp.onchange=()=>{F.tp=tp.value;draw()};ve.onchange=()=>{F.ve=ve.value;draw()};hs.onchange=ts.onchange=draw;
