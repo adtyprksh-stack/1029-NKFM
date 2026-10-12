@@ -25,7 +25,7 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--ac)}#st{color:var(--m
 <div class="row">
 <button class="p" onclick="fd()">Fetch from Drive</button><button onclick="fx.click()">Add Excel reports</button><button onclick="ex()">Export history</button><button onclick="fj.click()">Import history</button><button onclick="clr()">Clear data</button>
 <input id="fx" type="file" accept=".xlsx,.xls" multiple hidden><input id="fj" type="file" accept=".json" hidden></div>
-<div class="row"><button class="p" id="b1" onclick="tab(1)">Stock &amp; receipts</button><button id="b2" onclick="tab(2)">Transit delay</button><button id="b3" onclick="tab(3)">Cycle study</button></div>
+<div class="row"><button class="p" id="b1" onclick="tab(1)">Stock &amp; receipts</button><button id="b2" onclick="tab(2)">Transit delay</button><button id="b3" onclick="tab(3)">Cycle study</button><button id="b4" onclick="tab(4)">Vehicles &amp; trips</button></div>
 <div id="v1"><div class="row"><label>Day (by plant entry)<input type="date" id="rd"></label></div>
 <div class="tiles" id="s1"></div>
 <div class="g"><div class="g" style="grid-column:1/-1;margin-top:0"><div class="c"><h2>Receipt by source mine (MT)</h2><canvas id="k1"></canvas></div><div class="c"><h2>Receipt by transporter (MT)</h2><canvas id="k2"></canvas></div></div>
@@ -58,6 +58,13 @@ details{margin-top:10px}summary{cursor:pointer;color:var(--ac)}#st{color:var(--m
 <div class="c" style="grid-column:1/-1"><h2 id="sgt">Stage time by hour of day</h2><p>Choose a stage, a view and Show. The hour is when the stage starts. Red bands = no entry on route (road stages only). The number under each hour is the trip count; faded bars have fewer than 5 trips. Only vehicles in a loaded checkpost report appear here.</p><div class="row"><label>Stage<select id="sg1"><option value="road">Loaded road: checkpost exit to plant entry</option><option value="ret">Return run: plant exit to checkpost entry</option><option value="mine">Time at the mine: checkpost entry to exit</option></select></label><label>View<select id="sg2"><option value="h">By hour of day</option><option value="d">By day</option></select></label><label>Show<select id="sg3"><option value="md">Median</option><option value="av">Average</option></select></label><label>Return run cap (hours)<input type="number" id="scap" min="1" style="width:110px"></label></div><div class="sub" id="sgn"></div><canvas id="k8" data-mw="700"></canvas></div>
 <div class="c" style="grid-column:1/-1"><h2>Vehicle tracker</h2><p>Every recorded event for one vehicle in the selected period, in order, with the time since the previous event. Red = the longest stage in each loop (plant exit to plant exit). Checkpost rows appear only for vehicles in a loaded checkpost report. A * on Mine exit means MET is after the checkpost exit: manual entry error.</p><div class="row"><label>Vehicle<select id="vt1"></select></label></div><div class="sc" id="vtb"></div></div>
 </div></div>
+<div id="v4" hidden>
+<div class="row"><button id="vpv">&#9664; Previous day</button><label>Day (plant entry day)<select id="vd"></select></label><button id="vnx">Next day &#9654;</button></div>
+<div class="row"><button id="vg1" class="p">All</button><button id="vg2">NML (Chatti Bariatu, Kerandari)</button><button id="vg3">CCL (all other mines)</button></div>
+<div class="sub">Vehicles = different vehicles that made at least one trip that day. The 1 to 7+ columns show how many of those vehicles made that many trips. NML = Chatti Bariatu and Kerandari; CCL = all other mines. A vehicle that loads at more than one mine, or for more than one transporter, counts once under each, so the rows can add up to more than the "All" row.</div>
+<div class="c" style="margin-top:10px"><h2>By mine</h2><div class="sc" id="vb1"></div></div>
+<div class="c" style="margin-top:10px"><h2>By transporter</h2><div class="sc" id="vb2"></div></div>
+</div>
 <details><summary>Settings</summary><div class="c" style="margin-top:6px"><div class="row">
 <label>Transporter source field<select id="trk"><option value="c">Challan created by (default source)</option><option value="t">Transporter column</option></select></label>
 <label>Drive script link<input id="du" size="28" placeholder="https://script.google.com/.../exec"></label><label>Drive password<input id="dk" type="password"></label></div><p>Checkpost to mine: each checkpost report is matched only to trips of the mine chosen here. A guess from the name is pre-selected; change it if wrong.</p><div class="row" id="cpm"></div>
@@ -168,9 +175,16 @@ ds.forEach((d,i)=>{if(n<=24||i%2==0){g.fillStyle='#e6eeff';g.textAlign='center';
 sr.forEach((s,k)=>{g.strokeStyle=s[1];g.lineWidth=2.5;g.beginPath();let b=0;s[2].forEach((v,i)=>{if(v==null){b=0;return}b?g.lineTo(gx(i),gy(v)):g.moveTo(gx(i),gy(v));b=1});g.stroke();
 s[2].forEach((v,i)=>{if(v==null)return;g.fillStyle=s[1];g.beginPath();g.arc(gx(i),gy(v),4,0,7);g.fill();if(n<=16||i==n-1){g.fillStyle='#fff';g.textAlign='center';g.fillText(fv(v),gx(i),gy(v)+(k%2?19:-9))}})})}
 let TAB=1;const NM=m=>/chatti|kerandari/i.test(m),ne=i=>{const o=[];[[7,10],[14,16]].forEach(([a,b])=>{const s=Math.max(a,3*i),e=Math.min(b,3*i+3);if(e>s)o.push(pad(s)+'-'+pad(e))});return o.length?'No entry '+o.join(', '):''};
-function tab(n){TAB=n;v1.hidden=n!=1;v2.hidden=n!=2;v3.hidden=n!=3;b1.className=n==1?'p':'';b2.className=n==2?'p':'';b3.className=n==3?'p':'';draw()}
-function draw(){TAB==1?drawS():TAB==2?drawT():drawC()}
-rd.onchange=km.onchange=kr.onchange=draw;const setM=e=>{const d=rd.value,o=(S.man=S.man||{})[d]=S.man[d]||{};o[e.target.dataset.f]=e.target.value;o._t=Date.now();save();drawS()};
+let VG='all';
+function drawV(){[vg1,vg2,vg3].forEach((b,i)=>b.className=['all','nml','ccl'][i]==VG?'p':'');const days=[...new Set(T.map(x=>x.d))].sort().reverse();if(!days.length){vb1.innerHTML=vb2.innerHTML='<p>No data loaded yet.</p>';return}
+const cur=vd.value;vd.innerHTML=days.map(d=>`<option value="${d}">${dmy(d)}</option>`).join('');vd.value=days.includes(cur)?cur:days[0];
+const gm=m=>VG=='all'||(VG=='nml'?NM(m):m!='N/A'&&!NM(m)),S0=T.filter(x=>x.d==vd.value&&gm(x.m)),mines=[...new Set(S0.map(x=>x.m))].sort(),trs=[...new Set(S0.map(tk))].sort(),bk=a=>{const m={};a.forEach(x=>{if(!vk(x))return;const k=vk(x);m[k]=(m[k]||0)+1});const c=Array(7).fill(0);Object.values(m).forEach(v=>c[Math.min(v,7)-1]++);return c},
+ln=(lab,a)=>{const c=bk(a);return`<tr><th>${lab}</th><td><b>${c.reduce((s,v)=>s+v,0)}</b></td><td>${a.length}</td>${c.map(v=>`<td>${v||'-'}</td>`).join('')}</tr>`},
+tB=(rows,kf,first)=>`<table><tr><th>${first}</th><th>Vehicles (unique)</th><th>Trips</th><th>1 trip</th><th>2 trips</th><th>3 trips</th><th>4 trips</th><th>5 trips</th><th>6 trips</th><th>7+ trips</th></tr>${rows.map(r=>ln(r,S0.filter(x=>kf(x)==r))).join('')}${VG=='all'?ln('NML total',S0.filter(x=>NM(x.m)))+ln('CCL total',S0.filter(x=>x.m!='N/A'&&!NM(x.m))):''}${ln(VG=='all'?'All':VG=='nml'?'NML total':'CCL total',S0)}</table>`;
+vb1.innerHTML=tB(mines,x=>x.m,'Mine');vb2.innerHTML=tB(trs,tk,'Transporter')}
+function tab(n){TAB=n;v1.hidden=n!=1;v2.hidden=n!=2;v3.hidden=n!=3;v4.hidden=n!=4;[b1,b2,b3,b4].forEach((b,i)=>b.className=i+1==n?'p':'');draw()}
+function draw(){TAB==1?drawS():TAB==2?drawT():TAB==3?drawC():drawV()}
+vd.onchange=draw;[vg1,vg2,vg3].forEach((b,i)=>b.onclick=()=>{VG=['all','nml','ccl'][i];draw()});vpv.onclick=()=>{if(vd.selectedIndex<vd.options.length-1){vd.selectedIndex++;draw()}};vnx.onclick=()=>{if(vd.selectedIndex>0){vd.selectedIndex--;draw()}};rd.onchange=km.onchange=kr.onchange=draw;const setM=e=>{const d=rd.value,o=(S.man=S.man||{})[d]=S.man[d]||{};o[e.target.dataset.f]=e.target.value;o._t=Date.now();save();drawS()};
 mf.oninput=setM;mf.onchange=e=>{setM(e);syncMan()};
 function hb(id,items,col){const[g,w,H]=cv(id,Math.max(70,items.length*46+8));if(!items.length){empty(g,w,H);return}const mx=Math.max(...items.map(i=>i[1]),1),W=w-76;
 items.forEach((it,i)=>{const y=i*46+4,bw=Math.max(2,W*it[1]/mx),v=Math.round(it[1]).toLocaleString('en-IN');let nm=String(it[0]);g.textAlign='left';g.fillStyle='#fff';while(nm.length>3&&g.measureText(nm).width>w-4)nm=nm.slice(0,-2);if(nm!=String(it[0]))nm+='..';g.fillText(nm,0,y+13);g.fillStyle=col;g.fillRect(0,y+19,bw,20);
