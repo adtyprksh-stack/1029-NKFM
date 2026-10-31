@@ -327,7 +327,7 @@ if(x.a==null||x.o==null||x.o<x.b||x.tr==null){xc.ts++;return}
 if(!y){xc.nn++;return}if(y.m!=m){xc.sw++;return}
 if(y.a==null||y.a<x.o){xc.ts++;return}
 const gap=y.a-x.o;if(gap>lim){xc.gap++;return}
-const k=cpx()[y.i],em=k&&k.cin>=x.o&&k.cin<y.a?k.cin-x.o:null,ev=em!=null?em:emEst(m,x.o);ok.push({x,y,r:x.tr,p:x.o-x.b,b:gap,t:y.a-x.a,em,ev,es:em==null,ld:Math.max(0,gap-ev),dc:em==null?null:k.cout-k.cin,ci:em==null?null:k.cin,co:em==null?null:k.cout})})}
+const k=cpx()[y.i],em=k&&k.cin>=x.o&&k.cin<y.a?k.cin-x.o:null,ev=em!=null?em:Math.min(emEst(m,x.o),gap);ok.push({x,y,r:x.tr,p:x.o-x.b,b:gap,t:y.a-x.a,em,ev,es:em==null,ld:Math.max(0,gap-ev),dc:em==null?null:k.cout-k.cin,ci:em==null?null:k.cin,co:em==null?null:k.cout})})}
 return{ok,xc}}
 function drawC(){const ms=[...new Set(T.map(x=>x.m))].sort();F.cm=F.cm&&ms.includes(F.cm)?F.cm:ms[0]||'';fill('#cmi',ms,'Choose a mine',F.cm);cmi.value=F.cm;const m=F.cm;
 if(!m){csm.textContent='Add trip data first.';return}
